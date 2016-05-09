@@ -1,10 +1,16 @@
 var https = require('https');
 var querystring = require('querystring');
+var fs = require('fs');
+var locations = JSON.parse(fs.readFileSync('dataCollectionLocations.geojson', 'utf8'));
 
-var post_data = querystring.stringify({"grant_type": "client_credentials", "scope": "public"});
+
 var token;
+var gLat = 38.87693545;
+var gLon = -77.0165205;
+
 var respJson;
 
+var post_data = querystring.stringify({"grant_type": "client_credentials", "scope": "public"});
 
 
 var req_token_options= {
@@ -28,24 +34,45 @@ var auth_req = https.request(req_token_options, function(res) {
         respJson = JSON.parse(chunk);
         console.log('Response: ' + JSON.stringify(respJson));
         token = respJson.access_token;
-        console.log('Token: ' + token);
-        getData();
+        getDataWrapper();
     });
 });
-auth_req.write(post_data);
-auth_req.end();
+
+function getAndSaveToken(){
+    auth_req.write(post_data);
+    auth_req.end();
+}
+
+getAndSaveToken();
 
 
-function getData() {
+function getDataWrapper(){
+    var data =  locations.features;
+
+    for(i=0;i<data.length;i++){
+        var lat = data[i].properties.centlat;
+        var lon = data[i].properties.centlon;
+        var config = {token:token, lat:lat,lon:lon};
+        console.log("config!",config);
+        getData(config)
+
+    }
+
+
+}
+
+
+
+function getData(config) {
 
     var get_cost_options= {
         hostname: 'api.lyft.com',
         port:443,
         method:'GET',
-        path: '/v1/cost?start_lat=38.87693545&start_lng=-77.0165205',
-        auth:'bearer :'+token,
+        path: '/v1/cost?start_lat='+config.lat+'&start_lng='+config.lon,
         headers:{
-            'Content-Type': 'application/json'
+            'Authorization': 'Bearer '+config.token,
+            'Content-Type': 'application/x-www-form-urlencoded',
         }
     };
 
@@ -53,9 +80,6 @@ function getData() {
     var data_req = https.request(get_cost_options, function (res) {
         res.setEncoding('utf8');
         res.on('data', function (chunk) {
-            console.log("PREP: GET COST RESPOSNE");
-            console.log('statusCode: ', res.statusCode);
-            // console.log('headers: ', res.headers);
             respJson = JSON.parse(chunk);
             console.log('Response: ' + JSON.stringify(respJson));
         });
