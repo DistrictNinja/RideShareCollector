@@ -1,47 +1,43 @@
-var Uber = require('uber-api')({server_token:'P8YegbF53nWPZST5xX0ZlktVnufXYYQa01Dy0ocm',version:'v1'});
+var Uber = require('uber-api')({server_token:'KWf1thoH-FkuIijTJSLgr4pLblrYjuzhmmp5rO8P',version:'v1'});
+var fs = require('fs');
+var DBManager = require('./DBManager.js');
+var locations = JSON.parse(fs.readFileSync('dataCollectionLocations.geojson', 'utf8'));
 
 
+function getData(config) {
 
-var x = 38.87693545;
-var y = -77.0165205;
-//
-//Uber.getPriceEstimate({sLat:x,
-//                    sLng:y,
-//                    eLat:x,
-//                    eLng:y}).then(function(response){
-//    console.log("Price Details: %j",response);
-//
-//}, function(error){
-//    console.error(response);
-//});
-//
-Uber.getTimeEstimate({sLat:x,
-    sLng:y,
-    eLat:x,
-    eLng:y}).then(function(response){
-    console.log("Price Details: %j",response);
+    Uber.getPriceEstimate({
+        sLat: config.sLat,
+        sLng: config.sLon,
+        eLat: config.eLat,
+        eLng: config.eLon
+    },function(someKindofNull,response) {
+        //   console.log("Price Details: %j", response);
+     DBManager.insertUberData(config.sLat, config.sLon, config.meta, response);
+    });
 
-}, function(error){
-    console.error(response);
-});
+}
 
+getDataWrapper();
 
-// Retrieve
-//var MongoClient = require('mongodb').MongoClient;
-//
-//// Connect to the db
-//MongoClient.connect("mongodb://localhost:27017/UberDC", function(err, db) {
-//    if(!err) {
-//        console.log("We are connected");
-//    }
-//
-//
+function getDataWrapper() {
+    var data = locations.features;
+//console.log("length",data.length);
+    console.log("Uber Execute");
+    for (i = 0; i < data.length; i++) {
+        var sLat = data[i].properties.centlat;
+        var sLon = data[i].properties.centlon;
+        var eLat = data[i].properties.centlat;
+        var eLon = data[i].properties.centlon;
+        var metaData = data[i].properties;
+        var config = {sLat:sLat, sLon:sLon, eLat:eLat, eLon:eLon, meta: metaData};
+        //console.log("config!",config);
+        getData(config);
+    }
 
+}
 
-
-
-//});
-
+module.exports.execute = getDataWrapper;
 
 
 //Uber.getProducts({lat:x,

@@ -1,17 +1,13 @@
 var https = require('https');
 var querystring = require('querystring');
 var fs = require('fs');
+var DBManager = require('./DBManager.js');
 var locations = JSON.parse(fs.readFileSync('dataCollectionLocations.geojson', 'utf8'));
 
-
-var token;
-var gLat = 38.87693545;
-var gLon = -77.0165205;
+var token=null;
 
 var respJson;
-
 var post_data = querystring.stringify({"grant_type": "client_credentials", "scope": "public"});
-
 
 var req_token_options= {
     hostname: 'api.lyft.com',
@@ -25,22 +21,36 @@ var req_token_options= {
     }
 };
 
-var auth_req = https.request(req_token_options, function(res) {
-    res.setEncoding('utf8');
-    res.on('data', function (chunk) {
-        console.log("PREP: GET TOKEN RESPOSNE");
-        console.log('statusCode: ', res.statusCode);
-       // console.log('headers: ', res.headers);
-        respJson = JSON.parse(chunk);
-        console.log('Response: ' + JSON.stringify(respJson));
-        token = respJson.access_token;
-        getDataWrapper();
-    });
-});
+
+//DBManager.insertLyftData("-71.060316","48.432044",{'whatup':'yea'},{'whatup':'yea'});
+
 
 function getAndSaveToken(){
+
+    console.log("Lyft Execute");
+
+
+    var auth_req = https.request(req_token_options, function(res) {
+        res.setEncoding('utf8');
+            res.on('data', function (chunk) {
+                //   console.log("PREP: GET TOKEN RESPOSNE");
+                //   console.log('statusCode: ', res.statusCode);
+                // console.log('headers: ', res.headers);
+                respJson = JSON.parse(chunk);
+                //   console.log('Response: ' + JSON.stringify(respJson));
+                token = respJson.access_token;
+                getDataWrapper();
+            });
+            res.on('error', function (err) {
+                console.log("error!", err);
+            });
+
+
+    });
+
     auth_req.write(post_data);
     auth_req.end();
+
 }
 
 getAndSaveToken();
@@ -52,8 +62,9 @@ function getDataWrapper(){
     for(i=0;i<data.length;i++){
         var lat = data[i].properties.centlat;
         var lon = data[i].properties.centlon;
-        var config = {token:token, lat:lat,lon:lon};
-        console.log("config!",config);
+        var metaData = data[i].properties;
+        var config = {token:token, lat:lat,lon:lon, meta:metaData};
+        //console.log("config!",config);
         getData(config)
 
     }
@@ -80,8 +91,12 @@ function getData(config) {
     var data_req = https.request(get_cost_options, function (res) {
         res.setEncoding('utf8');
         res.on('data', function (chunk) {
+          //  console.log(config.lat,config.lon,config.meta,res);
             respJson = JSON.parse(chunk);
-            console.log('Response: ' + JSON.stringify(respJson));
+           //console.log('Response: ' + JSON.stringify(respJson));
+            DBManager.insertLyftData(config.lat,config.lon,config.meta,respJson);
+
+
         });
     });
 
@@ -92,3 +107,5 @@ function getData(config) {
 }
 
 
+
+module.exports.execute = getAndSaveToken;
